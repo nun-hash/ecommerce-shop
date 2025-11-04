@@ -9,8 +9,20 @@ app.get("/", (req, res) => {
   res.send("✅ Telegram LaTeX Bot is running.");
 });
 
-// Start Telegram bot (polling)
-bot.launch().then(() => console.log("🤖 Bot started!"));
+// Validate BOT_TOKEN
+if (!process.env.BOT_TOKEN) {
+  console.error("❌ BOT_TOKEN is not set in environment variables!");
+  process.exit(1);
+}
+
+// Start Telegram bot (polling) with error handling
+bot
+  .launch()
+  .then(() => console.log("🤖 Bot started successfully!"))
+  .catch((error) => {
+    console.error("❌ Failed to start bot:", error.message);
+    process.exit(1);
+  });
 
 app.listen(PORT, () => console.log(`🌍 Server running on port ${PORT}`));
 

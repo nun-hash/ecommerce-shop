@@ -9,84 +9,91 @@ const makeHtml = (latex) => `
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="utf-8"/>
-<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
-<style>
-body {
-  margin: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: white;
-  height: 100vh;
-}
-#math {
-  font-size: 48px;
-}
-</style>
+    <meta charset="utf-8"/>
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+    <style>
+        body {
+            margin: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: white;
+            height: 100vh;
+        }
+        #math {
+            font-size: 48px;
+        }
+    </style>
 </head>
 <body>
-  <div id="math">\\(${latex}\\)</div>
+    <div id="math">\\(${latex}\\)</div>
 </body>
 </html>
 `;
 
 async function renderLatex(latex) {
-  const browser = await puppeteer.launch({
-    executablePath: "/usr/bin/chromium",
-    args: ["--no-sandbox", "--disable-setuid-sandbox"],
-    headless: "new",
-  });
+  try {
+    const executablePath =
+      process.env.NODE_ENV === "production"
+        ? "/usr/bin/chromium"
+        : "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
 
-  const page = await browser.newPage();
-  await page.setContent(makeHtml(latex), { waitUntil: "networkidle0" });
-  await page.waitForSelector("svg"); // wait until MathJax finishes rendering
-  const element = await page.$("svg");
-  const buffer = await element.screenshot({ type: "png" });
+    const browser = await puppeteer.launch({
+      executablePath,
+      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+      headless: "new",
+    });
 
-  await browser.close();
-  return buffer;
+    const page = await browser.newPage();
+    await page.setContent(makeHtml(latex), { waitUntil: "networkidle0" });
+    await page.waitForSelector("svg");
+    const element = await page.$("svg");
+    const buffer = await element.screenshot({ type: "png" });
+
+    await browser.close();
+    return buffer;
+  } catch (error) {
+    console.error("Error rendering LaTeX:", error);
+    throw error;
+  }
 }
 
-// /start command
+// Start command handler
 bot.command("start", (ctx) =>
   ctx.reply(
-    "👋 Send me LaTeX code using the `/tex` command.\n\nExample:\n`/tex \\frac{a}{b} = c`",
+    "👋 Welcome to LaTeX Bot!\n\n" +
+      "Use the /tex command followed by your LaTeX expression to render it.\n\n" +
+      "Example:\n`/tex \\frac{a}{b} = c`",
     { parse_mode: "Markdown" }
   )
 );
 
-// /tex command
+// LaTeX command handler
 bot.command("tex", async (ctx) => {
   const input = ctx.message.text.replace(/^\/tex(@\S+)?\s*/, "").trim();
 
   if (!input) {
     return ctx.reply(
-      "⚠️ Please provide LaTeX code.\nExample:\n`/tex \\frac{a}{b}=c`",
+      "⚠️ Please provide LaTeX code after the /tex command.\n\n" +
+        "Example:\n`/tex \\frac{a}{b} = c`",
       { parse_mode: "Markdown" }
     );
   }
 
-  await ctx.replyWithChatAction("upload_photo");
-
   try {
-    const img = await renderLatex(input);
-    await ctx.replyWithPhoto({ source: img });
-  } catch (err) {
-    console.error(err);
-    await ctx.reply("❌ Error rendering LaTeX.");
+    await ctx.replyWithChatAction("upload_photo");
+    const photo = await renderLatex(input);
+    await ctx.replyWithPhoto({ source: photo });
+  } catch (error) {
+    await ctx.reply(
+      "❌ Error rendering LaTeX. Please check your syntax and try again."
+    );
   }
 });
 
-// Ignore plain text messages (no \tex command)
-bot.on("text", async (ctx) => {
-  const msg = ctx.message.text.trim();
-  if (!msg.startsWith("/tex")) {
-    return ctx.reply("💡 Use `/tex` to render LaTeX formulas.", {
-      parse_mode: "Markdown",
-    });
-  }
+// Ignore all other messages
+bot.on("message", (ctx) => {
+  // Silent ignore of all other messages
 });
 
-bot.launch();
-console.log("✅ Telegram LaTeX bot is running...");
+module.exports = bot;
