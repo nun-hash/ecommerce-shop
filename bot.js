@@ -4,7 +4,7 @@ const puppeteer = require("puppeteer-core");
 
 const bot = new Telegraf(process.env.BOT_TOKEN);
 
-// HTML page that MathJax will render
+// Function to create an HTML page rendered by MathJax
 const makeHtml = (latex) => `
 <!DOCTYPE html>
 <html>
@@ -37,10 +37,10 @@ async function renderLatex(latex) {
     args: ["--no-sandbox", "--disable-setuid-sandbox"],
     headless: "new",
   });
+
   const page = await browser.newPage();
   await page.setContent(makeHtml(latex), { waitUntil: "networkidle0" });
-  await page.waitForSelector("svg"); // wait until MathJax renders SVG
-
+  await page.waitForSelector("svg"); // wait until MathJax finishes rendering
   const element = await page.$("svg");
   const buffer = await element.screenshot({ type: "png" });
 
@@ -48,25 +48,27 @@ async function renderLatex(latex) {
   return buffer;
 }
 
-// Command handler
+// /start command
 bot.command("start", (ctx) =>
   ctx.reply(
-    "👋 Send me LaTeX code, or use /tex <code>. Example:\n/tex \\frac{a}{b} = c"
+    "👋 Send me LaTeX code using the `/tex` command.\n\nExample:\n`/tex \\frac{a}{b} = c`",
+    { parse_mode: "Markdown" }
   )
 );
 
+// /tex command
 bot.command("tex", async (ctx) => {
-  const input = ctx.message.text.replace(/^\/tex(@\S+)?\s*/, "");
-  if (!input.trim()) {
+  const input = ctx.message.text.replace(/^\/tex(@\S+)?\s*/, "").trim();
+
+  if (!input) {
     return ctx.reply(
-      "⚠️ Please provide LaTeX code.\nExample:\n/tex \\frac{a}{b}=c"
+      "⚠️ Please provide LaTeX code.\nExample:\n`/tex \\frac{a}{b}=c`",
+      { parse_mode: "Markdown" }
     );
-  } else {
-    if (!input)
-      return ctx.reply("Please provide LaTeX code. Example:\n/tex E=mc^2");
   }
 
   await ctx.replyWithChatAction("upload_photo");
+
   try {
     const img = await renderLatex(input);
     await ctx.replyWithPhoto({ source: img });
@@ -76,17 +78,15 @@ bot.command("tex", async (ctx) => {
   }
 });
 
-// Fallback: any plain message
+// Ignore plain text messages (no \tex command)
 bot.on("text", async (ctx) => {
-  const input = ctx.message.text;
-  await ctx.replyWithChatAction("upload_photo");
-  try {
-    const img = await renderLatex(input);
-    await ctx.replyWithPhoto({ source: img });
-  } catch (err) {
-    console.error(err);
-    await ctx.reply("❌ Error rendering.");
+  const msg = ctx.message.text.trim();
+  if (!msg.startsWith("/tex")) {
+    return ctx.reply("💡 Use `/tex` to render LaTeX formulas.", {
+      parse_mode: "Markdown",
+    });
   }
 });
 
-module.exports = bot;
+bot.launch();
+console.log("✅ Telegram LaTeX bot is running...");
