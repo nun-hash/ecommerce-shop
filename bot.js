@@ -33,9 +33,9 @@ body {
 
 async function renderLatex(latex) {
   const browser = await puppeteer.launch({
-    executablePath: '/usr/bin/chromium',
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    headless: "new"
+    executablePath: "/usr/bin/chromium",
+    args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    headless: "new",
   });
   const page = await browser.newPage();
   await page.setContent(makeHtml(latex), { waitUntil: "networkidle0" });
@@ -57,8 +57,14 @@ bot.command("start", (ctx) =>
 
 bot.command("tex", async (ctx) => {
   const input = ctx.message.text.replace(/^\/tex(@\S+)?\s*/, "");
-  if (!input)
-    return ctx.reply("Please provide LaTeX code. Example:\n/tex E=mc^2");
+  if (!input.trim()) {
+    return ctx.reply(
+      "⚠️ Please provide LaTeX code.\nExample:\n/tex \\frac{a}{b}=c"
+    );
+  } else {
+    if (!input)
+      return ctx.reply("Please provide LaTeX code. Example:\n/tex E=mc^2");
+  }
 
   await ctx.replyWithChatAction("upload_photo");
   try {
